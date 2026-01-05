@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - {{ current_user.business_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ current_user.business_name }}</h1>
+        <a href="/logout" class="btn btn-danger btn-sm">Sign Out</a>
+    </div>
+
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card-stat">
+                <h6 class="text-muted">TOTAL REVENUE</h6>
+                <h2 class="fw-bold">KES {{ total_sales }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card-stat" style="border-left-color: #e74a3b;">
+                <h6 class="text-muted">OUTSTANDING DEBT</h6>
+                <h2 class="fw-bold text-danger">KES {{ total_debt }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div class="d-flex justify-content-between mb-3 align-items-center">
+            <h3>Sales Ledger</h3>
+            <a href="/add" class="btn btn-primary">+ Log New Sale</a>
+        </div>
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr><th>Date</th><th>Customer</th><th>Item</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td>{{ sale.date_created.strftime('%d %b') }}</td>
+                    <td>{{ sale.customer_name }}</td>
+                    <td>{{ sale.item_name }}</td>
+                    <td>KES {{ sale.amount }}</td>
+                    <td>
+                        {% if sale.payment_status == 'Unpaid' %}
+                        <span class="badge bg-danger">Unpaid</span>
+                        {% else %}
+                        <span class="badge bg-success">Paid</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sale.payment_status == 'Unpaid' %}
+                        <a href="/pay/{{ sale.id }}" class="btn btn-sm btn-outline-success">Pay</a>
+                        <a href="https://wa.me/{{ sale.customer_phone }}?text=Hi%20{{ sale.customer_name }},%20this%20is%20a%20reminder%20for%20KES%20{{ sale.amount }}%20due%20at%20{{ current_user.business_name }}." 
+                           target="_blank" class="btn btn-sm btn-whatsapp">WA</a>
+                        <a href="/email_remind/{{ sale.id }}" class="btn btn-sm btn-outline-primary">Email</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
