@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from mpesa_utils import trigger_stk_push
@@ -9,6 +10,14 @@ app = Flask(__name__)
 app.secret_key = "zetech_research_2026_key"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hostel_ledger.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# --- MAIL CONFIGURATION ---
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'anasistanly@gmail.com'  # Replace with your email
+app.config['MAIL_PASSWORD'] = 'peam eest tymm xudz'    # Replace with your Gmail App Password
+mail = Mail(app)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -29,8 +38,8 @@ class Sale(db.Model):
     amount = db.Column(db.Float, nullable=False)
     customer_name = db.Column(db.String(100), nullable=False)
     customer_phone = db.Column(db.String(20), nullable=False)
+    customer_email = db.Column(db.String(120), nullable=True) # Restored for reminders
     payment_status = db.Column(db.String(20), default='Unpaid')
-    checkout_id = db.Column(db.String(100), nullable=True)
     date_created = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -38,17 +47,15 @@ class Sale(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- AUTHENTICATION ROUTES ---
+# --- AUTHENTICATION ---
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         hashed_pw = generate_password_hash(request.form.get('password'), method='pbkdf2:sha256')
-        new_user = User(username=request.form.get('username'), 
-                        business_name=request.form.get('business_name'), 
-                        password=hashed_pw)
+        new_user = User(username=request.form.get('username'), business_name=request.form.get('business_name'), password=hashed_pw)
         db.session.add(new_user)
         db.session.commit()
-        flash("Registration successful! Please login.", "success")
+        flash("Registration successful!", "success")
         return redirect(url_for('login'))
     return render_template('register.html')
 
@@ -68,11 +75,10 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- SALES MANAGEMENT (CRUD) ---
+# --- SALES & CRUD ---
 @app.route('/')
 def index():
-    if not current_user.is_authenticated:
-        return render_template('landing.html')
+    if not current_user.is_authenticated: return render_template('landing.html')
     sales = Sale.query.filter_by(user_id=current_user.id).order_by(Sale.date_created.desc()).all()
     total_sales = sum(s.amount for s in sales)
     total_debt = sum(s.amount for s in sales if s.payment_status == 'Unpaid')
@@ -82,9 +88,12 @@ def index():
 @login_required
 def add_sale():
     if request.method == 'POST':
-        new_sale = Sale(item_name=request.form['item_name'], amount=float(request.form['amount']),
-                        customer_name=request.form['customer_name'], customer_phone=request.form['customer_phone'],
-                        payment_status=request.form['payment_status'], user_id=current_user.id)
+        new_sale = Sale(
+            item_name=request.form['item_name'], amount=float(request.form['amount']),
+            customer_name=request.form['customer_name'], customer_phone=request.form['customer_phone'],
+            customer_email=request.form.get('customer_email'), # Capture email
+            payment_status=request.form['payment_status'], user_id=current_user.id
+        )
         db.session.add(new_sale)
         db.session.commit()
         return redirect(url_for('index'))
@@ -94,8 +103,7 @@ def add_sale():
 @login_required
 def edit_sale(id):
     sale = Sale.query.get_or_404(id)
-    if sale.user_id != current_user.id:
-        return redirect(url_for('index'))
+    if sale.user_id != current_user.id: return redirect(url_for('index'))
     if request.method == 'POST':
         sale.item_name, sale.amount = request.form['item_name'], float(request.form['amount'])
         sale.customer_name, sale.customer_phone = request.form['customer_name'], request.form['customer_phone']
@@ -115,34 +123,46 @@ def delete_sale(id):
         flash("Record deleted.", "info")
     return redirect(url_for('index'))
 
-# --- M-PESA INTEGRATION ---
+# --- REMINDERS & PAYMENTS ---
+@app.route('/email_remind/<int:id>')
+@login_required
+def email_remind(id):
+    sale = Sale.query.get_or_404(id)
+    if not sale.customer_email:
+        flash("No email address found for this customer.", "warning")
+        return redirect(url_for('index'))
+    try:
+        msg = Message(subject=f"Payment Reminder: {current_user.business_name}", sender=app.config['MAIL_USERNAME'], recipients=[sale.customer_email])
+        msg.body = f"Hi {sale.customer_name},\n\nThis is a kind reminder to clear your outstanding balance of KES {sale.amount} at {current_user.business_name}.\n\nTHANK YOU!!"
+        mail.send(msg)
+        flash(f"Reminder sent to {sale.customer_email}", "success")
+    except Exception as e:
+        flash(f"Email failed: {str(e)}", "danger")
+    return redirect(url_for('index'))
+
 @app.route('/stk_push/<int:id>')
 @login_required
 def stk_push_route(id):
     sale = Sale.query.get_or_404(id)
-    callback_url = "https://your-render-app-name.onrender.com/mpesa_callback"
-    response = trigger_stk_push(sale.customer_phone, int(sale.amount), callback_url)
-    if response.get('ResponseCode') == '0':
-        sale.checkout_id = response.get('CheckoutRequestID')
-        db.session.commit()
-        flash("Payment prompt sent!", "success")
+    response = trigger_stk_push(sale.customer_phone, int(sale.amount), f"Sale_{sale.id}")
+    if response.get('success') == 'true':
+        flash("M-PESA prompt sent!", "success")
     else:
-        flash("M-PESA error. Check phone format.", "danger")
+        flash("M-PESA error.", "danger")
     return redirect(url_for('index'))
 
-@app.route('/mpesa_callback', methods=['POST'])
-def mpesa_callback():
+@app.route('/tinypesa_callback', methods=['POST'])
+def tinypesa_callback():
     data = request.get_json()
-    res_code = data['Body']['stkCallback']['ResultCode']
-    checkout_id = data['Body']['stkCallback']['CheckoutRequestID']
-    if res_code == 0:
-        sale = Sale.query.filter_by(checkout_id=checkout_id).first()
+    account_no = data.get('external_reference') 
+    if account_no and account_no.startswith("Sale_"):
+        sale_id = int(account_no.replace("Sale_", ""))
+        sale = Sale.query.get(sale_id)
         if sale:
             sale.payment_status = 'Paid'
             db.session.commit()
-    return jsonify({"ResultCode": 0, "ResultDesc": "Success"})
+    return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    with app.app_context(): db.create_all()
     app.run(debug=True)

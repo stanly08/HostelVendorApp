@@ -1,24 +1,130 @@
+/* Custom variables for a consistent color palette */
 :root {
-    --primary: #4e73df;
-    --success: #1cc88a;
-    --danger: #e74a3b;
-    --dark: #2c3e50;
+    --primary: #4e73df;    /* Main Blue */
+    --secondary: #858796;  /* Text Gray */
+    --success: #1cc88a;    /* M-Pesa Green */
+    --info: #36b9cc;       /* Sky Blue */
+    --warning: #f6c23e;    /* Golden Yellow */
+    --danger: #e74a3b;     /* Alert Red */
+    --dark: #2c3e50;       /* Header Dark */
+    --whatsapp: #25D366;   /* Official WhatsApp Green */
 }
 
-body { background-color: #f8f9fc; font-family: 'Nunito', sans-serif; color: var(--dark); }
+/* Global Styles */
+body {
+    background-color: #f8f9fc;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--dark);
+    line-height: 1.6;
+}
 
+/* Landing Page Header */
 .landing-header {
     background: linear-gradient(135deg, var(--primary), #224abe);
-    color: white; padding: 100px 0; border-radius: 0 0 10px 10px;
+    color: white;
+    padding: 100px 0;
+    border-radius: 0 0 10px 10px;
 }
 
+/* Summary Statistics Cards */
 .card-stat {
-    border-left: 5px solid var(--primary); border-radius: 10px;
-    background: white; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: none;
+    border-left: 5px solid var(--primary);
+    border-radius: 10px;
+    background: white;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
 }
 
+.card-stat:hover {
+    transform: translateY(-3px);
+}
+
+.card-stat h6 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    margin-bottom: 0.5rem;
+}
+
+.card-stat h2, .card-stat h3 {
+    margin: 0;
+    font-weight: 800;
+}
+
+/* Sales Ledger Container */
 .table-container {
-    background: white; border-radius: 15px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-top: 20px;
 }
 
-.btn-whatsapp { background-color: #25D366; color: white; }
+/* Table Enhancements */
+.table thead th {
+    border-top: none;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    color: var(--secondary);
+    padding: 12px;
+}
+
+.table tbody td {
+    padding: 12px;
+    vertical-align: middle;
+}
+
+/* Button Group Styling */
+.btn-group .btn {
+    margin-right: 5px;
+    border-radius: 5px !important;
+    font-weight: 600;
+}
+
+/* Specialized Button Colors */
+.btn-whatsapp {
+    background-color: var(--whatsapp);
+    color: white;
+    border: none;
+}
+
+.btn-whatsapp:hover {
+    background-color: #1ebe57;
+    color: white;
+}
+
+/* Badge Styling */
+.badge {
+    padding: 0.5em 0.8em;
+    border-radius: 0.5rem;
+    font-weight: 700;
+}
+
+/* Utility Classes */
+.text-danger {
+    color: var(--danger) !important;
+}
+
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .landing-header {
+        padding: 60px 0;
+    }
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .btn-group .btn {
+        margin-right: 0;
+        width: 100%;
+    }
+}
