@@ -72,12 +72,12 @@ Below is the complete project structure
 
 ```
 HostelVendorApp/
-├── app.py              # The main "brain" (Routes, Models, & Logic)
+├── app.py              # The main "brain" of the project (Routes, Models, & Logic)
 ├── requirements.txt    # List of Python libraries to install
 ├── hostel_vendor.db    # The SQLite database (generated automatically)
-├── static/             # CSS, Images, and Javascript
-│   └── style.css       # Your custom styling and layout
-└── templates/          # All your HTML pages
+├── static/             
+│   └── style.css       # styling and layout
+└── templates/          # HTML pages
     ├── login.html      # Authentication entry
     ├── signup.html     # User registration
     ├── dashboard.html  # Main vendor console
