@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Customer Debts</title>
+</head>
+<body>
+    <nav>
+        <a href="/dashboard">Home</a> | <a href="/inventory">Inventory</a> | 
+        <a href="/debts">Debts</a> | <a href="/reports">Reports</a> | <a href="/logout">Logout</a>
+    </nav>
+
+    <h2>Outstanding Debts</h2>
+    <div class="card">
+        <h3>Total Owed: KES {{ total_owed }}</h3>
+    </div>
+
+    <table>
+        <tr>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Phone</th>
+            <th>Actions</th>
+        </tr>
+        {% for d in debts %}
+        <tr>
+            <td>{{ d.customer_name }}</td>
+            <td>KES {{ d.amount }}</td>
+            <td>{{ d.phone }}</td>
+            <td>
+                <a href="https://wa.me/{{ d.phone }}?text=Hello {{ d.customer_name }}, reminding you of your balance of KES {{ d.amount }}." class="btn-wa">Remind</a>
+                <a href="/delete_debt/{{ d.id }}" class="btn-delete">Clear Debt</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
