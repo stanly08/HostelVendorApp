@@ -11,6 +11,15 @@
     </nav>
 
     <h2>Outstanding Debts</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <div class="card">
         <h3>Total Owed: KES {{ total_owed }}</h3>
     </div>
@@ -29,10 +38,19 @@
             <td>{{ d.phone }}</td>
             <td>
                 <a href="https://wa.me/{{ d.phone }}?text=Hello {{ d.customer_name }}, reminding you of your balance of KES {{ d.amount }}." class="btn-wa">Remind</a>
-                <a href="/delete_debt/{{ d.id }}" class="btn-delete">Clear Debt</a>
+                
+                <a href="{{ url_for('clear_debt', debt_id=d.id) }}" 
+                   class="btn-delete" 
+                   onclick="return confirm('Mark this as paid? It will be added to your Sales Report.')">
+                   Clear Debt
+                </a>
             </td>
         </tr>
         {% endfor %}
     </table>
+
+    {% if not debts %}
+        <p style="text-align: center; margin-top: 20px;">No pending debts. Good job, Stanly!</p>
+    {% endif %}
 </body>
 </html>
