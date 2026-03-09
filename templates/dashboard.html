@@ -12,6 +12,18 @@
 
     <h2>Point of Sale (Snacks & Juices)</h2>
     
+    {% if low_stock_alerts %}
+    <div class="alert-box" style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        <strong>⚠️ Stock Alert:</strong> The following items are running low:
+        <ul style="margin: 10px 0 0 0;">
+            {% for item in low_stock_alerts %}
+                <li>{{ item.name }} (Only {{ item.stock }} left!)</li>
+            {% endfor %}
+        </ul>
+        <a href="/inventory" style="display: inline-block; margin-top: 10px; color: #856404; font-weight: bold; text-decoration: underline;">Update Inventory →</a>
+    </div>
+    {% endif %}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
