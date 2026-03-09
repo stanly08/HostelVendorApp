@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 
 # Security configuration
-app.config['SECRET_KEY'] = 'zetech_snack_system_2026_secret'
+app.config['SECRET_KEY'] = '8b89f32a3a528957f6542e1879064c8de8be55b4cc4a43c2'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hostel_vendor.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
