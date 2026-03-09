@@ -12,18 +12,51 @@
 
     <h2>Financial Summary</h2>
     <div class="report-grid">
-        <div class="card">
+        <div class="card success">
+            <h4>Total Cash Sales</h4>
+            <p>KES {{ total_sales }}</p>
+            <small>Direct sales + Cleared debts</small>
+        </div>
+
+        <div class="card warning">
             <h4>Total Outstanding Debt</h4>
             <p>KES {{ total_debt }}</p>
+            <small>Money still in the hostel</small>
         </div>
-        <div class="card">
+
+        <div class="card info">
             <h4>Total Inventory Value</h4>
             <p>KES {{ inventory_value }}</p>
+            <small>Value of stock on hand</small>
         </div>
-        <div class="card">
+
+        <div class="card danger">
             <h4>Low Stock Alerts</h4>
             <p>{{ low_stock }} Items</p>
+            <small>Items with less than 5 units</small>
         </div>
     </div>
+
+    {% if low_stock_list %}
+    <h3>Restock Needed</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Units Left</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in low_stock_list %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td style="color: red; font-weight: bold;">{{ item.stock }}</td>
+                <td>KES {{ item.price }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 </body>
 </html>
