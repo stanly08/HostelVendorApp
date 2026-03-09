@@ -112,22 +112,42 @@ def inventory():
     products = Product.query.all()
     return render_template('inventory.html', products=products)
 
+@app.route('/edit_product/<int:product_id>', methods=['GET', 'POST'])
+def edit_product(product_id):
+    """Updates existing product details."""
+    if 'user_id' not in session: return redirect(url_for('login'))
+    product = Product.query.get_or_404(product_id)
+    if request.method == 'POST':
+        product.name = request.form['name']
+        product.price = float(request.form['price'])
+        product.stock = int(request.form['stock'])
+        db.session.commit()
+        flash(f'Updated {product.name} successfully!', 'success')
+        return redirect(url_for('inventory'))
+    return render_template('edit_product.html', product=product)
+
+@app.route('/delete_product/<int:product_id>')
+def delete_product(product_id):
+    """Removes a product from inventory."""
+    if 'user_id' not in session: return redirect(url_for('login'))
+    product = Product.query.get_or_404(product_id)
+    db.session.delete(product)
+    db.session.commit()
+    flash(f'Product {product.name} deleted!', 'success')
+    return redirect(url_for('inventory'))
+
 @app.route('/process_transaction', methods=['POST'])
 def process_transaction():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     prod_id = request.form['product_id']
     qty = int(request.form['quantity'])
     action = request.form['action'] 
     product = Product.query.get(prod_id)
-    
     if not product or product.stock < qty:
         flash('Error: Insufficient stock available!', 'error')
         return redirect(url_for('dashboard'))
-
     total_price = product.price * qty
     product.stock -= qty 
-
     if action == 'debt':
         new_debt = Debt(
             customer_name=request.form['customer'],
@@ -146,7 +166,6 @@ def process_transaction():
         )
         db.session.add(new_sale)
         flash(f'Direct sale of {product.name} (KES {total_price}) completed!', 'success')
-
     db.session.commit()
     return redirect(url_for('dashboard'))
 
@@ -178,64 +197,49 @@ def clear_debt(debt_id):
 @app.route('/reports')
 def reports():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
     total_sales_revenue = db.session.query(func.sum(Sale.amount)).scalar() or 0
     low_stock_items = Product.query.filter(Product.stock < 5).all()
     all_products = Product.query.all()
     inventory_value = sum(p.price * p.stock for p in all_products)
-    
-    # Capture the current time
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     return render_template('reports.html', 
                            total_debt=total_debt, 
                            total_sales=total_sales_revenue,
                            low_stock=len(low_stock_items), 
                            inventory_value=inventory_value,
                            low_stock_list=low_stock_items,
-                           updated_at=now) # Pass the time here
+                           updated_at=now)
 
 @app.route('/download_report')
 def download_report():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     today = datetime.utcnow().date()
     sales_today = Sale.query.filter(func.date(Sale.date_sold) == today).all()
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
     total_sales_value = db.session.query(func.sum(Sale.amount)).filter(func.date(Sale.date_sold) == today).scalar() or 0
-    
     pdf = FPDF()
     pdf.add_page()
-    
-    # Header
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(190, 10, "Hostel Vendor Daily Sales Report", ln=True, align='C')
     pdf.set_font("Arial", size=12)
     pdf.cell(190, 10, f"Date: {today.strftime('%Y-%m-%d')}", ln=True, align='C')
     pdf.ln(10)
-    
-    # Financial Summary
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(95, 10, f"Sales Today: KES {total_sales_value}", border=1)
     pdf.cell(95, 10, f"Total Debt: KES {total_debt}", border=1, ln=True)
     pdf.ln(10)
-    
-    # Sales Table Header
     pdf.set_fill_color(200, 220, 255)
     pdf.cell(80, 10, "Product Name", border=1, fill=True)
     pdf.cell(30, 10, "Qty", border=1, fill=True)
     pdf.cell(40, 10, "Amount", border=1, fill=True)
     pdf.cell(40, 10, "Customer", border=1, fill=True, ln=True)
-    
-    # Sales Table Data
     pdf.set_font("Arial", size=10)
     for sale in sales_today:
         pdf.cell(80, 10, f"{sale.product_name}", border=1)
         pdf.cell(30, 10, f"{sale.quantity}", border=1)
         pdf.cell(40, 10, f"KES {sale.amount}", border=1)
         pdf.cell(40, 10, f"{sale.customer_name}", border=1, ln=True)
-    
     response = make_response(pdf.output(dest='S'))
     response.headers.set('Content-Disposition', 'attachment', filename=f'report_{today}.pdf')
     response.headers.set('Content-Type', 'application/pdf')
