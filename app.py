@@ -7,19 +7,19 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 
-# Load the variables from .env
+# 1. Load Environment Variables (for Juja local dev and Render cloud)
 load_dotenv()
 
 app = Flask(__name__)
 
-# pulling the key using os.environ
+# 2. Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- DATABASE MODELS ---
+# --- 3. DATABASE MODELS ---
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,7 +49,7 @@ class Sale(db.Model):
     date_sold = db.Column(db.DateTime, default=datetime.utcnow)
     customer_name = db.Column(db.String(100), default="Cash Customer")
 
-# --- AUTHENTICATION ---
+# --- 4. AUTHENTICATION ---
 
 @app.route('/')
 def index():
@@ -89,7 +89,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# --- CORE LOGIC & POS ---
+# --- 5. CORE POS LOGIC ---
 
 @app.route('/dashboard')
 def dashboard():
@@ -173,6 +173,8 @@ def clear_debt(debt_id):
     flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
     return redirect(url_for('view_debts'))
 
+# --- 6. REPORTING & PDF ---
+
 @app.route('/reports')
 def reports():
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -192,27 +194,48 @@ def reports():
 def download_report():
     if 'user_id' not in session: return redirect(url_for('login'))
     
+    today = datetime.utcnow().date()
+    sales_today = Sale.query.filter(func.date(Sale.date_sold) == today).all()
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
-    total_sales = db.session.query(func.sum(Sale.amount)).scalar() or 0
+    total_sales_value = db.session.query(func.sum(Sale.amount)).filter(func.date(Sale.date_sold) == today).scalar() or 0
     
     pdf = FPDF()
     pdf.add_page()
+    
+    # Header
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(190, 10, "Hostel Vendor App - Financial Report", ln=True, align='C')
+    pdf.cell(190, 10, "Hostel Vendor Daily Sales Report", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.cell(190, 10, f"Date: {today.strftime('%Y-%m-%d')}", ln=True, align='C')
     pdf.ln(10)
     
-    pdf.set_font("Arial", size=12)
-    pdf.cell(190, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
-    pdf.ln(5)
-    pdf.cell(190, 10, f"Total Cash Sales: KES {total_sales}", ln=True)
-    pdf.cell(190, 10, f"Total Outstanding Debt: KES {total_debt}", ln=True)
+    # Financial Summary
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(95, 10, f"Sales Today: KES {total_sales_value}", border=1)
+    pdf.cell(95, 10, f"Total Debt: KES {total_debt}", border=1, ln=True)
+    pdf.ln(10)
+    
+    # Sales Table Header
+    pdf.set_fill_color(200, 220, 255)
+    pdf.cell(80, 10, "Product Name", border=1, fill=True)
+    pdf.cell(30, 10, "Qty", border=1, fill=True)
+    pdf.cell(40, 10, "Amount", border=1, fill=True)
+    pdf.cell(40, 10, "Customer", border=1, fill=True, ln=True)
+    
+    # Sales Table Data
+    pdf.set_font("Arial", size=10)
+    for sale in sales_today:
+        pdf.cell(80, 10, f"{sale.product_name}", border=1)
+        pdf.cell(30, 10, f"{sale.quantity}", border=1)
+        pdf.cell(40, 10, f"KES {sale.amount}", border=1)
+        pdf.cell(40, 10, f"{sale.customer_name}", border=1, ln=True)
     
     response = make_response(pdf.output(dest='S'))
-    response.headers.set('Content-Disposition', 'attachment', filename='sales_report.pdf')
+    response.headers.set('Content-Disposition', 'attachment', filename=f'report_{today}.pdf')
     response.headers.set('Content-Type', 'application/pdf')
     return response
 
-# --- APP INITIALIZATION ---
+# --- 7. APP INITIALIZATION ---
 
 if __name__ == '__main__':
     with app.app_context():
