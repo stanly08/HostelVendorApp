@@ -5,11 +5,14 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# Load the variables from .env
+load_dotenv()
+
 app = Flask(__name__)
 
-# Security configuration
-app.config['SECRET_KEY'] = '8b89f32a3a528957f6542e1879064c8de8be55b4cc4a43c2'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hostel_vendor.db'
+# pulling the key using os.environ
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
