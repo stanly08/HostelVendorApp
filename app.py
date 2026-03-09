@@ -1,10 +1,11 @@
 import os
-from dotenv import load_dotenv
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, request, flash, session
+from dotenv import load_dotenv
+from flask import Flask, render_template, redirect, url_for, request, flash, session, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
+from fpdf import FPDF
 
 # Load the variables from .env
 load_dotenv()
@@ -113,12 +114,11 @@ def inventory():
 
 @app.route('/process_transaction', methods=['POST'])
 def process_transaction():
-    """Handles both Direct Sales and Debt creation from the dashboard."""
     if 'user_id' not in session: return redirect(url_for('login'))
     
     prod_id = request.form['product_id']
     qty = int(request.form['quantity'])
-    action = request.form['action'] # 'sale' or 'debt'
+    action = request.form['action'] 
     product = Product.query.get(prod_id)
     
     if not product or product.stock < qty:
@@ -138,7 +138,6 @@ def process_transaction():
         db.session.add(new_debt)
         flash(f'Debt of KES {total_price} recorded for {request.form["customer"]}', 'success')
     else:
-        # Direct POS Sale
         new_sale = Sale(
             product_name=product.name,
             amount=total_price,
@@ -160,42 +159,58 @@ def view_debts():
 
 @app.route('/clear_debt/<int:debt_id>')
 def clear_debt(debt_id):
-    """Converts a debt into a completed sale instead of just deleting it."""
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     debt = Debt.query.get_or_404(debt_id)
-    
-    # Create a Sale record based on the debt data
     new_sale = Sale(
         product_name=debt.product.name if debt.product else "Unknown Product",
         amount=debt.amount,
-        quantity=1, # Adjust if you track qty in Debt model
+        quantity=1, 
         customer_name=debt.customer_name
     )
-    
     db.session.add(new_sale)
     db.session.delete(debt)
     db.session.commit()
-    
     flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
     return redirect(url_for('view_debts'))
 
 @app.route('/reports')
 def reports():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
     total_sales_revenue = db.session.query(func.sum(Sale.amount)).scalar() or 0
     low_stock_items = Product.query.filter(Product.stock < 5).all()
     all_products = Product.query.all()
     inventory_value = sum(p.price * p.stock for p in all_products)
-    
     return render_template('reports.html', 
                            total_debt=total_debt, 
                            total_sales=total_sales_revenue,
                            low_stock=len(low_stock_items), 
                            inventory_value=inventory_value,
                            low_stock_list=low_stock_items)
+
+@app.route('/download_report')
+def download_report():
+    if 'user_id' not in session: return redirect(url_for('login'))
+    
+    total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
+    total_sales = db.session.query(func.sum(Sale.amount)).scalar() or 0
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(190, 10, "Hostel Vendor App - Financial Report", ln=True, align='C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", size=12)
+    pdf.cell(190, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
+    pdf.ln(5)
+    pdf.cell(190, 10, f"Total Cash Sales: KES {total_sales}", ln=True)
+    pdf.cell(190, 10, f"Total Outstanding Debt: KES {total_debt}", ln=True)
+    
+    response = make_response(pdf.output(dest='S'))
+    response.headers.set('Content-Disposition', 'attachment', filename='sales_report.pdf')
+    response.headers.set('Content-Type', 'application/pdf')
+    return response
 
 # --- APP INITIALIZATION ---
 
