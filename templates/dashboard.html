@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Sales Dashboard</title>
+</head>
+<body>
+    <nav>
+        <a href="/dashboard">Home</a> | <a href="/inventory">Inventory</a> | 
+        <a href="/debts">Debts</a> | <a href="/reports">Reports</a> | <a href="/logout">Logout</a>
+    </nav>
+    <h2>Record Snack/Juice Sale (Credit)</h2>
+    <form action="/add_debt" method="POST">
+        <input type="text" name="customer" placeholder="Customer Name" required>
+        <input type="text" name="phone" placeholder="Phone (254...)" required>
+        <select name="product_id">
+            {% for p in products %}<option value="{{p.id}}">{{p.name}} - KES {{p.price}}</option>{% endfor %}
+        </select>
+        <input type="number" name="quantity" placeholder="Quantity" required>
+        <button type="submit">Add Debt</button>
+    </form>
+</body>
+</html>
