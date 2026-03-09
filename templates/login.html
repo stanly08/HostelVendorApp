@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Login - Sales System</title>
+</head>
+<body>
+    <div class="card">
+        <h2>Vendor Login</h2>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}<p style="color:red">{{ message }}</p>{% endfor %}
+          {% endif %}
+        {% endwith %}
+        <form action="/login" method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Enter Dashboard</button>
+        </form>
+        <p>New vendor? <a href="/signup">Sign up here</a></p>
+    </div>
+</body>
+</html>
