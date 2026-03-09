@@ -18,12 +18,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# DATABASE MODELS
+# --- DATABASE MODELS ---
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False) # Stores the HASHED password
+    password = db.Column(db.String(255), nullable=False) 
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,7 +40,15 @@ class Debt(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
     product = db.relationship('Product', backref='debts')
 
- # user authentication
+class Sale(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    date_sold = db.Column(db.DateTime, default=datetime.utcnow)
+    customer_name = db.Column(db.String(100), default="Cash Customer")
+
+# --- AUTHENTICATION ---
 
 @app.route('/')
 def index():
@@ -53,15 +61,11 @@ def signup():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
         if User.query.filter_by(username=username).first():
             flash('Username already exists!', 'error')
             return redirect(url_for('signup'))
-
-        # Securely hash the password before saving to SQLite
         hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(username=username, password=hashed_pw)
-        
         db.session.add(new_user)
         db.session.commit()
         flash('Account created! Please login.', 'success')
@@ -76,7 +80,6 @@ def login():
             session['user_id'] = user.id
             session['username'] = user.username
             return redirect(url_for('dashboard'))
-        
         flash('Invalid username or password', 'error')
     return render_template('login.html')
 
@@ -85,7 +88,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
+# --- CORE LOGIC & POS ---
 
 @app.route('/dashboard')
 def dashboard():
@@ -96,7 +99,6 @@ def dashboard():
 @app.route('/inventory', methods=['GET', 'POST'])
 def inventory():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
     if request.method == 'POST':
         new_prod = Product(
             name=request.form['name'],
@@ -106,23 +108,27 @@ def inventory():
         db.session.add(new_prod)
         db.session.commit()
         flash(f'Added {new_prod.name} to inventory.', 'success')
-        
     products = Product.query.all()
     return render_template('inventory.html', products=products)
 
-@app.route('/add_debt', methods=['POST'])
-def add_debt():
+@app.route('/process_transaction', methods=['POST'])
+def process_transaction():
+    """Handles both Direct Sales and Debt creation from the dashboard."""
     if 'user_id' not in session: return redirect(url_for('login'))
     
     prod_id = request.form['product_id']
     qty = int(request.form['quantity'])
+    action = request.form['action'] # 'sale' or 'debt'
     product = Product.query.get(prod_id)
     
-    if product and product.stock >= qty:
-        
-        product.stock -= qty 
-        total_price = product.price * qty
-        
+    if not product or product.stock < qty:
+        flash('Error: Insufficient stock available!', 'error')
+        return redirect(url_for('dashboard'))
+
+    total_price = product.price * qty
+    product.stock -= qty 
+
+    if action == 'debt':
         new_debt = Debt(
             customer_name=request.form['customer'],
             phone=request.form['phone'],
@@ -130,11 +136,19 @@ def add_debt():
             product_id=prod_id
         )
         db.session.add(new_debt)
-        db.session.commit()
         flash(f'Debt of KES {total_price} recorded for {request.form["customer"]}', 'success')
     else:
-        flash('Error: Insufficient stock available!', 'error')
-        
+        # Direct POS Sale
+        new_sale = Sale(
+            product_name=product.name,
+            amount=total_price,
+            quantity=qty,
+            customer_name="Cash Customer"
+        )
+        db.session.add(new_sale)
+        flash(f'Direct sale of {product.name} (KES {total_price}) completed!', 'success')
+
+    db.session.commit()
     return redirect(url_for('dashboard'))
 
 @app.route('/debts')
@@ -144,24 +158,48 @@ def view_debts():
     total_owed = db.session.query(func.sum(Debt.amount)).scalar() or 0
     return render_template('debts.html', debts=debts, total_owed=total_owed)
 
+@app.route('/clear_debt/<int:debt_id>')
+def clear_debt(debt_id):
+    """Converts a debt into a completed sale instead of just deleting it."""
+    if 'user_id' not in session: return redirect(url_for('login'))
+    
+    debt = Debt.query.get_or_404(debt_id)
+    
+    # Create a Sale record based on the debt data
+    new_sale = Sale(
+        product_name=debt.product.name if debt.product else "Unknown Product",
+        amount=debt.amount,
+        quantity=1, # Adjust if you track qty in Debt model
+        customer_name=debt.customer_name
+    )
+    
+    db.session.add(new_sale)
+    db.session.delete(debt)
+    db.session.commit()
+    
+    flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
+    return redirect(url_for('view_debts'))
+
 @app.route('/reports')
 def reports():
     if 'user_id' not in session: return redirect(url_for('login'))
     
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
+    total_sales_revenue = db.session.query(func.sum(Sale.amount)).scalar() or 0
     low_stock_items = Product.query.filter(Product.stock < 5).all()
     all_products = Product.query.all()
     inventory_value = sum(p.price * p.stock for p in all_products)
     
     return render_template('reports.html', 
                            total_debt=total_debt, 
+                           total_sales=total_sales_revenue,
                            low_stock=len(low_stock_items), 
                            inventory_value=inventory_value,
                            low_stock_list=low_stock_items)
 
-# APP INITIALIZATION
+# --- APP INITIALIZATION ---
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all() # this automatically generates the .db file and tables
+        db.create_all() 
     app.run(debug=True, host='0.0.0.0', port=5000)
