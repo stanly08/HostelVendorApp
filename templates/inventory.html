@@ -18,20 +18,62 @@
         <button type="submit">Add Product</button>
     </form>
 
+    <hr>
+
     <h3>Current Inventory</h3>
-    <table>
-        <tr>
-            <th>Item</th>
-            <th>Price</th>
-            <th>Remaining Stock</th>
-        </tr>
-        {% for p in products %}
-        <tr>
-            <td>{{ p.name }}</td>
-            <td>KES {{ p.price }}</td>
-            <td>{{ p.stock }}</td>
-        </tr>
-        {% endfor %}
+    
+    <div class="search-container" style="margin-bottom: 15px;">
+        <input type="text" id="inventorySearch" onkeyup="filterInventory()" 
+               placeholder="Search for snacks or juices..." 
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+    </div>
+
+    <table id="inventoryTable">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Remaining Stock</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td>{{ p.name }}</td>
+                <td>KES {{ p.price }}</td>
+                <td>
+                    {{ p.stock }}
+                    {% if p.stock < 5 %}
+                        <span style="background-color: #ff4d4d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 10px;">
+                            Low Stock
+                        </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
+
+    <script>
+    function filterInventory() {
+      var input, filter, table, tr, td, i, txtValue;
+      input = document.getElementById("inventorySearch");
+      filter = input.value.toUpperCase();
+      table = document.getElementById("inventoryTable");
+      tr = table.getElementsByTagName("tr");
+
+      for (i = 1; i < tr.length; i++) {
+        td = tr[i].getElementsByTagName("td")[0]; // Filters based on Item Name
+        if (td) {
+          txtValue = td.textContent || td.innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            tr[i].style.display = "";
+          } else {
+            tr[i].style.display = "none";
+          }
+        }
+      }
+    }
+    </script>
 </body>
 </html>
