@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Business Reports</title>
+</head>
+<body>
+    <nav>
+        <a href="/dashboard">Home</a> | <a href="/inventory">Inventory</a> | 
+        <a href="/debts">Debts</a> | <a href="/reports">Reports</a> | <a href="/logout">Logout</a>
+    </nav>
+
+    <h2>Financial Summary</h2>
+    <div class="report-grid">
+        <div class="card">
+            <h4>Total Outstanding Debt</h4>
+            <p>KES {{ total_debt }}</p>
+        </div>
+        <div class="card">
+            <h4>Total Inventory Value</h4>
+            <p>KES {{ inventory_value }}</p>
+        </div>
+        <div class="card">
+            <h4>Low Stock Alerts</h4>
+            <p>{{ low_stock }} Items</p>
+        </div>
+    </div>
+</body>
+</html>
