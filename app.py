@@ -178,17 +178,23 @@ def clear_debt(debt_id):
 @app.route('/reports')
 def reports():
     if 'user_id' not in session: return redirect(url_for('login'))
+    
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
     total_sales_revenue = db.session.query(func.sum(Sale.amount)).scalar() or 0
     low_stock_items = Product.query.filter(Product.stock < 5).all()
     all_products = Product.query.all()
     inventory_value = sum(p.price * p.stock for p in all_products)
+    
+    # Capture the current time
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     return render_template('reports.html', 
                            total_debt=total_debt, 
                            total_sales=total_sales_revenue,
                            low_stock=len(low_stock_items), 
                            inventory_value=inventory_value,
-                           low_stock_list=low_stock_items)
+                           low_stock_list=low_stock_items,
+                           updated_at=now) # Pass the time here
 
 @app.route('/download_report')
 def download_report():
