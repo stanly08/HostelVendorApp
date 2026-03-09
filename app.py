@@ -89,13 +89,15 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# --- 5. CORE POS LOGIC ---
+# --- 5. CORE POS LOGIC & INVENTORY ---
 
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session: return redirect(url_for('login'))
     products = Product.query.all()
-    return render_template('dashboard.html', products=products)
+    # Logic: Pass low stock alerts to the dashboard
+    low_stock_alerts = Product.query.filter(Product.stock < 5).all()
+    return render_template('dashboard.html', products=products, low_stock_alerts=low_stock_alerts)
 
 @app.route('/inventory', methods=['GET', 'POST'])
 def inventory():
@@ -114,7 +116,6 @@ def inventory():
 
 @app.route('/edit_product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product(product_id):
-    """Updates existing product details."""
     if 'user_id' not in session: return redirect(url_for('login'))
     product = Product.query.get_or_404(product_id)
     if request.method == 'POST':
@@ -128,7 +129,6 @@ def edit_product(product_id):
 
 @app.route('/delete_product/<int:product_id>')
 def delete_product(product_id):
-    """Removes a product from inventory."""
     if 'user_id' not in session: return redirect(url_for('login'))
     product = Product.query.get_or_404(product_id)
     db.session.delete(product)
