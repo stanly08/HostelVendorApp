@@ -34,7 +34,7 @@
                 <th>Item</th>
                 <th>Price</th>
                 <th>Remaining Stock</th>
-            </tr>
+                <th>Actions</th> </tr>
         </thead>
         <tbody>
             {% for p in products %}
@@ -48,6 +48,18 @@
                             Low Stock
                         </span>
                     {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('edit_product', product_id=p.id) }}" 
+                       style="background-color: #3498db; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 0.9em;">
+                       Edit
+                    </a>
+                    
+                    <a href="{{ url_for('delete_product', product_id=p.id) }}" 
+                       style="background-color: #e74c3c; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 0.9em; margin-left: 5px;"
+                       onclick="return confirm('Are you sure you want to delete {{ p.name }}?')">
+                       Delete
+                    </a>
                 </td>
             </tr>
             {% endfor %}
@@ -63,7 +75,7 @@
       tr = table.getElementsByTagName("tr");
 
       for (i = 1; i < tr.length; i++) {
-        td = tr[i].getElementsByTagName("td")[0]; // Filters based on Item Name
+        td = tr[i].getElementsByTagName("td")[0]; 
         if (td) {
           txtValue = td.textContent || td.innerText;
           if (txtValue.toUpperCase().indexOf(filter) > -1) {
