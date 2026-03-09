@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, render_template, redirect, url_for, request, flash, session, make_response
+from flask import Flask, render_template, redirect, url_for, request, flash, session, make_response, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -95,7 +95,6 @@ def logout():
 def dashboard():
     if 'user_id' not in session: return redirect(url_for('login'))
     products = Product.query.all()
-    # Logic: Pass low stock alerts to the dashboard
     low_stock_alerts = Product.query.filter(Product.stock < 5).all()
     return render_template('dashboard.html', products=products, low_stock_alerts=low_stock_alerts)
 
@@ -192,7 +191,7 @@ def clear_debt(debt_id):
     flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
     return redirect(url_for('view_debts'))
 
-# --- 6. REPORTING & PDF ---
+# --- 6. REPORTING, PDF & BACKUP ---
 
 @app.route('/reports')
 def reports():
@@ -244,6 +243,14 @@ def download_report():
     response.headers.set('Content-Disposition', 'attachment', filename=f'report_{today}.pdf')
     response.headers.set('Content-Type', 'application/pdf')
     return response
+
+@app.route('/backup_db')
+def backup_db():
+    """Allows downloading the database file for local backup."""
+    if 'user_id' not in session: return redirect(url_for('login'))
+    # Ensure this matches your database filename in the instance folder
+    directory = os.path.join(app.instance_path)
+    return send_from_directory(directory, 'app.db', as_attachment=True)
 
 # --- 7. APP INITIALIZATION ---
 
