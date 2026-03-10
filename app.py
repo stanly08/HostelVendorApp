@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, url_for, request, flash, session, make_response, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -7,19 +7,26 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 
-# 1. Load Environment Variables (for Juja local dev and Render cloud)
+# 1. Load Environment Variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# 2. Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+# 2. CONFIGURATION & DIRECTORY SETUP
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-12345')
+
+# Ensure the instance folder exists (required for SQLite and Backups)
+if not os.path.exists(app.instance_path):
+    os.makedirs(app.instance_path)
+
+# Explicitly set the DB path to 'instance/app.db'
+db_path = os.path.join(app.instance_path, 'app.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- 3. DATABASE MODELS ---
+# 3. DATABASE MODELS
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,7 +44,7 @@ class Debt(db.Model):
     customer_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    date_added = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
     product = db.relationship('Product', backref='debts')
 
@@ -46,10 +53,10 @@ class Sale(db.Model):
     product_name = db.Column(db.String(100), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    date_sold = db.Column(db.DateTime, default=datetime.utcnow)
+    date_sold = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     customer_name = db.Column(db.String(100), default="Cash Customer")
 
-# --- 4. AUTHENTICATION ---
+# 4. AUTHENTICATION
 
 @app.route('/')
 def index():
@@ -65,7 +72,8 @@ def signup():
         if User.query.filter_by(username=username).first():
             flash('Username already exists!', 'error')
             return redirect(url_for('signup'))
-        hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
+        # Using default hashing
+        hashed_pw = generate_password_hash(password)
         new_user = User(username=username, password=hashed_pw)
         db.session.add(new_user)
         db.session.commit()
@@ -89,7 +97,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# --- 5. CORE POS LOGIC & INVENTORY ---
+# 5. CORE POS LOGIC & INVENTORY
 
 @app.route('/dashboard')
 def dashboard():
@@ -145,8 +153,10 @@ def process_transaction():
     if not product or product.stock < qty:
         flash('Error: Insufficient stock available!', 'error')
         return redirect(url_for('dashboard'))
+    
     total_price = product.price * qty
     product.stock -= qty 
+    
     if action == 'debt':
         new_debt = Debt(
             customer_name=request.form['customer'],
@@ -165,6 +175,7 @@ def process_transaction():
         )
         db.session.add(new_sale)
         flash(f'Direct sale of {product.name} (KES {total_price}) completed!', 'success')
+    
     db.session.commit()
     return redirect(url_for('dashboard'))
 
@@ -191,7 +202,7 @@ def clear_debt(debt_id):
     flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
     return redirect(url_for('view_debts'))
 
-# --- 6. REPORTING, PDF & BACKUP ---
+# 6. REPORTING, PDF & BACKUP
 
 @app.route('/reports')
 def reports():
@@ -213,10 +224,11 @@ def reports():
 @app.route('/download_report')
 def download_report():
     if 'user_id' not in session: return redirect(url_for('login'))
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     sales_today = Sale.query.filter(func.date(Sale.date_sold) == today).all()
     total_debt = db.session.query(func.sum(Debt.amount)).scalar() or 0
     total_sales_value = db.session.query(func.sum(Sale.amount)).filter(func.date(Sale.date_sold) == today).scalar() or 0
+    
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
@@ -228,17 +240,20 @@ def download_report():
     pdf.cell(95, 10, f"Sales Today: KES {total_sales_value}", border=1)
     pdf.cell(95, 10, f"Total Debt: KES {total_debt}", border=1, ln=True)
     pdf.ln(10)
+    
     pdf.set_fill_color(200, 220, 255)
     pdf.cell(80, 10, "Product Name", border=1, fill=True)
     pdf.cell(30, 10, "Qty", border=1, fill=True)
     pdf.cell(40, 10, "Amount", border=1, fill=True)
     pdf.cell(40, 10, "Customer", border=1, fill=True, ln=True)
+    
     pdf.set_font("Arial", size=10)
     for sale in sales_today:
         pdf.cell(80, 10, f"{sale.product_name}", border=1)
         pdf.cell(30, 10, f"{sale.quantity}", border=1)
         pdf.cell(40, 10, f"KES {sale.amount}", border=1)
         pdf.cell(40, 10, f"{sale.customer_name}", border=1, ln=True)
+    
     response = make_response(pdf.output(dest='S'))
     response.headers.set('Content-Disposition', 'attachment', filename=f'report_{today}.pdf')
     response.headers.set('Content-Type', 'application/pdf')
@@ -246,13 +261,18 @@ def download_report():
 
 @app.route('/backup_db')
 def backup_db():
-    """Allows downloading the database file for local backup."""
-    if 'user_id' not in session: return redirect(url_for('login'))
-    # Ensure this matches your database filename in the instance folder
-    directory = os.path.join(app.instance_path)
-    return send_from_directory(directory, 'app.db', as_attachment=True)
+    """Allows downloading the app.db file from the instance folder."""
+    if 'user_id' not in session: 
+        return redirect(url_for('login'))
+    
+    try:
+        # We explicitly search in app.instance_path
+        return send_from_directory(app.instance_path, 'app.db', as_attachment=True)
+    except FileNotFoundError:
+        flash("Error: Database file not found in instance folder.", "error")
+        return redirect(url_for('dashboard'))
 
-# --- 7. APP INITIALIZATION ---
+# 7. APP INITIALIZATION
 
 if __name__ == '__main__':
     with app.app_context():
