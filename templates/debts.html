@@ -37,7 +37,7 @@
             <td>KES {{ d.amount }}</td>
             <td>{{ d.phone }}</td>
             <td>
-                <a href="https://wa.me/{{ d.phone }}?text=Hello {{ d.customer_name }}, reminding you of your balance of KES {{ d.amount }}." class="btn-wa">Remind</a>
+                <a href="https://wa.me/{{ d.phone }}?text=Hello {{ d.customer_name }}, reminding you to clear your balance of KES {{ d.amount }}." class="btn-wa">Remind</a>
                 
                 <a href="{{ url_for('clear_debt', debt_id=d.id) }}" 
                    class="btn-delete" 
