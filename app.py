@@ -12,21 +12,22 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# 2. CONFIGURATION & DIRECTORY SETUP
+# --- 2. CONFIGURATION & DIRECTORY SETUP ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-12345')
 
-# Ensure the instance folder exists (required for SQLite and Backups)
+# Ensure the instance folder exists
 if not os.path.exists(app.instance_path):
     os.makedirs(app.instance_path)
 
-# Explicitly set the DB path to 'instance/app.db'
-db_path = os.path.join(app.instance_path, 'app.db')
+# MATCHING YOUR EXISTING FILE: hostel_vendor.db
+db_filename = 'hostel_vendor.db'
+db_path = os.path.join(app.instance_path, db_filename)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# 3. DATABASE MODELS
+# --- 3. DATABASE MODELS ---
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,7 +57,7 @@ class Sale(db.Model):
     date_sold = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     customer_name = db.Column(db.String(100), default="Cash Customer")
 
-# 4. AUTHENTICATION
+# --- 4. AUTHENTICATION ---
 
 @app.route('/')
 def index():
@@ -72,7 +73,7 @@ def signup():
         if User.query.filter_by(username=username).first():
             flash('Username already exists!', 'error')
             return redirect(url_for('signup'))
-        # Using default hashing
+        
         hashed_pw = generate_password_hash(password)
         new_user = User(username=username, password=hashed_pw)
         db.session.add(new_user)
@@ -97,7 +98,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# 5. CORE POS LOGIC & INVENTORY
+# --- 5. CORE POS LOGIC & INVENTORY ---
 
 @app.route('/dashboard')
 def dashboard():
@@ -150,6 +151,7 @@ def process_transaction():
     qty = int(request.form['quantity'])
     action = request.form['action'] 
     product = Product.query.get(prod_id)
+    
     if not product or product.stock < qty:
         flash('Error: Insufficient stock available!', 'error')
         return redirect(url_for('dashboard'))
@@ -202,7 +204,7 @@ def clear_debt(debt_id):
     flash(f'Debt for {debt.customer_name} cleared and recorded as a Sale!', 'success')
     return redirect(url_for('view_debts'))
 
-# 6. REPORTING, PDF & BACKUP
+# --- 6. REPORTING, PDF & BACKUP ---
 
 @app.route('/reports')
 def reports():
@@ -236,6 +238,7 @@ def download_report():
     pdf.set_font("Arial", size=12)
     pdf.cell(190, 10, f"Date: {today.strftime('%Y-%m-%d')}", ln=True, align='C')
     pdf.ln(10)
+    
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(95, 10, f"Sales Today: KES {total_sales_value}", border=1)
     pdf.cell(95, 10, f"Total Debt: KES {total_debt}", border=1, ln=True)
@@ -261,18 +264,18 @@ def download_report():
 
 @app.route('/backup_db')
 def backup_db():
-    """Allows downloading the app.db file from the instance folder."""
+    """Allows downloading the database file for local backup."""
     if 'user_id' not in session: 
         return redirect(url_for('login'))
     
     try:
-        # We explicitly search in app.instance_path
-        return send_from_directory(app.instance_path, 'app.db', as_attachment=True)
+        # Explicitly using hostel_vendor.db as found in your instance folder
+        return send_from_directory(app.instance_path, 'hostel_vendor.db', as_attachment=True)
     except FileNotFoundError:
-        flash("Error: Database file not found in instance folder.", "error")
+        flash("Error: Database file 'hostel_vendor.db' not found.", "error")
         return redirect(url_for('dashboard'))
 
-# 7. APP INITIALIZATION
+# --- 7. APP INITIALIZATION ---
 
 if __name__ == '__main__':
     with app.app_context():
