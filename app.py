@@ -7,11 +7,6 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 
-import os
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from dotenv import load_dotenv
-
 # 1. Load Environment Variables
 load_dotenv()
 
