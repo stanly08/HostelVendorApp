@@ -10,20 +10,28 @@ from fpdf import FPDF
 # 1. Load Environment Variables
 load_dotenv()
 
-app = Flask(__name__)
-
 # --- 2. CONFIGURATION & DIRECTORY SETUP ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-12345')
 
-# Ensure the instance folder exists
+# Ensure the instance folder exists (Needed for local SQLite)
 if not os.path.exists(app.instance_path):
     os.makedirs(app.instance_path)
 
-# MATCHING YOUR EXISTING FILE: hostel_vendor.db
-db_filename = 'hostel_vendor.db'
-db_path = os.path.join(app.instance_path, db_filename)
-app.config['SQLALCHEMY_DATABASE_URI'] = sqlite:///hostel_vendor.db
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
+# 1. Get the DATABASE_URL from Render's environment variables
+uri = os.environ.get('DATABASE_URL') 
+
+# 2. Render/PostgreSQL Fix: 
+# SQLAlchemy 1.4+ requires "postgresql://" but Render often provides "postgres://"
+if uri and uri.startswith("postgres://"):
+    uri = uri.replace("postgres://", "postgresql://", 1)
+
+# 3. Final Assignment: Use the URI if it exists, otherwise fall back to local SQLite
+if uri:
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+else:
+    db_path = os.path.join(app.instance_path, 'hostel_vendor.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
