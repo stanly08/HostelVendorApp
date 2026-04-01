@@ -7,40 +7,20 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 
-# 1. Load Environment Variables
-load_dotenv()
-
-# 2. CREATE THE APP INSTANCE FIRST (Crucial!)
 app = Flask(__name__)
 
-# --- 3. CONFIGURATION & DIRECTORY SETUP ---
-# Now 'app' exists, so you can configure it
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-12345')
+app.config['SECRET_KEY'] = '8b89f32a3a528957f6542e1879064c8de8be55b4cc4a43c2'
 
-# Ensure the instance folder exists (Needed for local SQLite)
-if not os.path.exists(app.instance_path):
-    os.makedirs(app.instance_path)
-
-# 1. Get the DATABASE_URL from Render's environment variables
-uri = os.environ.get('DATABASE_URL') 
-
-# 2. Render/PostgreSQL Fix: 
-if uri and uri.startswith("postgres://"):
-    uri = uri.replace("postgres://", "postgresql://", 1)
-
-# 3. Final Assignment
-if uri:
-    app.config['SQLALCHEMY_DATABASE_URI'] = uri
-else:
-    db_path = os.path.join(app.instance_path, 'hostel_vendor.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'hostel_vendor.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 4. Initialize the Database
+# --- 3. INITIALIZATION ---
 db = SQLAlchemy(app)
 
-# --- 3. DATABASE MODELS ---
+with app.app_context():
+    db.create_all()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
