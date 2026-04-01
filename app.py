@@ -22,6 +22,7 @@ if not os.path.exists(app.instance_path):
 # MATCHING YOUR EXISTING FILE: hostel_vendor.db
 db_filename = 'hostel_vendor.db'
 db_path = os.path.join(app.instance_path, db_filename)
+app.config['SQLALCHEMY_DATABASE_URI'] = sqlite:///hostel_vendor.db
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
