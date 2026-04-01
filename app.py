@@ -7,10 +7,19 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 
+import os
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+
 # 1. Load Environment Variables
 load_dotenv()
 
-# --- 2. CONFIGURATION & DIRECTORY SETUP ---
+# 2. CREATE THE APP INSTANCE FIRST (Crucial!)
+app = Flask(__name__)
+
+# --- 3. CONFIGURATION & DIRECTORY SETUP ---
+# Now 'app' exists, so you can configure it
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-12345')
 
 # Ensure the instance folder exists (Needed for local SQLite)
@@ -21,11 +30,10 @@ if not os.path.exists(app.instance_path):
 uri = os.environ.get('DATABASE_URL') 
 
 # 2. Render/PostgreSQL Fix: 
-# SQLAlchemy 1.4+ requires "postgresql://" but Render often provides "postgres://"
 if uri and uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
-# 3. Final Assignment: Use the URI if it exists, otherwise fall back to local SQLite
+# 3. Final Assignment
 if uri:
     app.config['SQLALCHEMY_DATABASE_URI'] = uri
 else:
@@ -34,6 +42,7 @@ else:
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# 4. Initialize the Database
 db = SQLAlchemy(app)
 
 # --- 3. DATABASE MODELS ---
