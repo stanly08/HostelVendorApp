@@ -257,16 +257,25 @@ def download_report():
 
 @app.route('/backup_db')
 def backup_db():
-    """Allows downloading the database file for local backup."""
     if 'user_id' not in session: 
         return redirect(url_for('login'))
     
-    try:
-        # Explicitly using hostel_vendor.db as found in your instance folder
-        return send_from_directory(app.instance_path, 'hostel_vendor.db', as_attachment=True)
-    except FileNotFoundError:
-        flash("Error: Database file 'hostel_vendor.db' not found.", "error")
-        return redirect(url_for('dashboard'))
+    # Define the possible locations of the database
+    possible_paths = [
+        os.path.join(os.path.abspath(os.path.dirname(__file__)), 'hostel_vendor.db'),
+        os.path.join(app.instance_path, 'hostel_vendor.db'),
+        'hostel_vendor.db'
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            directory = os.path.dirname(path)
+            filename = os.path.basename(path)
+            return send_from_directory(directory, filename, as_attachment=True)
+
+    # If we get here, the file hasn't been created yet
+    flash("Database file not found. Try adding a product or signing up first to create it!", "error")
+    return redirect(url_for('dashboard'))
 
 # --- 7. APP INITIALIZATION ---
 
