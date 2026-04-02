@@ -9,19 +9,16 @@ from fpdf import FPDF
 
 app = Flask(__name__)
 
+# --- 1. CONFIGURATION ---
 app.config['SECRET_KEY'] = '8b89f32a3a528957f6542e1879064c8de8be55b4cc4a43c2'
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'hostel_vendor.db')
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# --- 3. INITIALIZATION ---
 db = SQLAlchemy(app)
 
-with app.app_context():
-    db.create_all()
-
+# --- 2. MODELS (Define these BEFORE creating tables) ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -50,6 +47,9 @@ class Sale(db.Model):
     date_sold = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     customer_name = db.Column(db.String(100), default="Cash Customer")
 
+# --- 3. CREATE TABLES 
+with app.app_context():
+    db.create_all()
 # --- 4. AUTHENTICATION ---
 
 @app.route('/')
