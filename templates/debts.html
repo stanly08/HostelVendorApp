@@ -50,7 +50,7 @@
     </table>
 
     {% if not debts %}
-        <p style="text-align: center; margin-top: 20px;">No pending debts. Good job, Stanly!</p>
+        <p style="text-align: center; margin-top: 20px;">No pending debts. Good job, {{ session['username'] }}!</p>
     {% endif %}
 </body>
 </html>
